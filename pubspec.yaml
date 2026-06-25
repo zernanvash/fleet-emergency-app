@@ -1,0 +1,35 @@
+name: fleet_emergency_app
+description: A lightweight Flutter mobile app for fleet drivers to send SOS distress signals.
+version: 1.0.0+1
+
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Geolocation capture
+  geolocator: ^10.1.0
+
+  # REST API requests
+  dio: ^5.4.0
+
+  # Secure token persistent storage
+  shared_preferences: ^2.2.0
+
+  # Direct dialing capabilities
+  url_launcher: ^6.2.0
+
+  # Cupertino Icons
+  cupertino_icons: ^1.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
