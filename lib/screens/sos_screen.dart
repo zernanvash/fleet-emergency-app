@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/api_service.dart';
@@ -194,7 +194,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: Colors.grey[950],
+        backgroundColor: const Color(0xFF0A0A0A),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -213,7 +213,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
 
     if (_profile?.isDriver == false) {
       return Scaffold(
-        backgroundColor: Colors.grey[950],
+        backgroundColor: const Color(0xFF0A0A0A),
         body: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -246,7 +246,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[950],
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         backgroundColor: Colors.grey[900],
         title: const Text('SOS DISTRESS BEACON', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),
@@ -302,7 +302,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   colors: [
-                    Colors.red[950]!.withOpacity(0.15),
+                    Colors.red[900]!.withOpacity(0.15),
                     Colors.transparent,
                   ],
                   radius: 0.8,
@@ -391,13 +391,13 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
                             child: const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.siren_rounded, size: 40, color: Colors.white),
+                                Icon(Icons.notifications_active_rounded, size: 40, color: Colors.white),
                                 SizedBox(height: 4),
                                 Text(
                                   'SOS',
                                   style: TextStyle(
                                     fontSize: 32,
-                                    fontWeight: FontWeight.black,
+                                    fontWeight: FontWeight.w900,
                                     color: Colors.white,
                                     letterSpacing: 2,
                                   ),

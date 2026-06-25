@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'sos_screen.dart';
 
@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[950],
+      backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 // LOGO / BRANDING
                 Icon(
-                  Icons.siren_rounded,
+                  Icons.notifications_active_rounded,
                   size: 80,
                   color: Colors.red[500],
                 ),
@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   textAlign: TextAlign.center,
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: Colors.red[100],
-                    fontWeight: FontWeight.black,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: 2,
                   ),
                 ),
@@ -200,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 if (_showConfig) ...[
                   Card(
-                    color: Colors.grey[950],
+                    color: const Color(0xFF0A0A0A),
                     elevation: 0,
                     margin: const EdgeInsets.symmetric(horizontal: 12),
                     shape: RoundedRectangleBorder(

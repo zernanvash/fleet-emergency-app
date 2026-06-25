@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/driver_profile.dart';
 import '../models/emergency_report.dart';
@@ -103,7 +103,7 @@ class _DistressScreenState extends State<DistressScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[950],
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         backgroundColor: Colors.red[900],
         title: const Text('EMERGENCY ACTIVE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
@@ -118,7 +118,7 @@ class _DistressScreenState extends State<DistressScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.red[950]!.withOpacity(0.4),
+                color: Colors.red[900]!.withOpacity(0.4),
                 border: Border.all(color: Colors.red[800]!.withOpacity(0.5)),
                 borderRadius: BorderRadius.circular(12),
               ),

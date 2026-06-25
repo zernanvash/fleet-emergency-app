@@ -11,7 +11,7 @@ class ApiService {
   ApiService._internal() {
     _dio = Dio(BaseOptions(
       // Default gateway (port 3000 where our Next.js BFF is running)
-      baseUrl: 'http://10.0.2.2:3000', // Default Android emulator localhost bypass.
+      baseUrl: 'http://100.105.235.94:3000',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {

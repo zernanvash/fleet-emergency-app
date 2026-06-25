@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/sos_screen.dart';
 import 'services/api_service.dart';
@@ -33,11 +33,11 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.dark(
           primary: Colors.red[500]!,
           secondary: Colors.redAccent,
-          background: Colors.grey[950]!,
+          background: const Color(0xFF0A0A0A),
           surface: Colors.grey[900]!,
           error: Colors.red[700]!,
         ),
-        scaffoldBackgroundColor: Colors.grey[950],
+        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
         inputDecorationTheme: InputDecorationTheme(
           labelStyle: const TextStyle(color: Colors.grey),
           border: UnderlineInputBorder(
