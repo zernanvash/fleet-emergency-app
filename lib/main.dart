@@ -26,28 +26,28 @@ class MyApp extends StatelessWidget {
       title: 'VOS Fleet SOS',
       debugShowCheckedModeBanner: false,
       
-      // SLEEK PREMIUM DARK-RED EMERGENCY THEMING
+      // VOS ENTERPRISE LIGHT OPERATIONAL THEMING
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.dark(
-          primary: Colors.red[500]!,
-          secondary: Colors.redAccent,
-          background: const Color(0xFF0A0A0A),
-          surface: Colors.grey[900]!,
-          error: Colors.red[700]!,
+        brightness: Brightness.light,
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF1D4ED8),       // Primary VOS Blue
+          secondary: Color(0xFF3B82F6),     // Supporting Blue
+          background: Color(0xFFF9F9FB),    // Light background
+          surface: Color(0xFFFFFFFF),       // White cards
+          error: Color(0xFFEF4444),         // Destructive Red
         ),
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: const TextStyle(color: Colors.grey),
+        scaffoldBackgroundColor: const Color(0xFFF9F9FB),
+        inputDecorationTheme: const InputDecorationTheme(
+          labelStyle: TextStyle(color: Color(0xFF71717A)),
           border: UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey[800]!),
+            borderSide: BorderSide(color: Color(0xFFE4E4E7)),
           ),
           enabledBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey[800]!),
+            borderSide: BorderSide(color: Color(0xFFE4E4E7)),
           ),
           focusedBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.red[500]!),
+            borderSide: BorderSide(color: Color(0xFF1D4ED8)),
           ),
         ),
       ),

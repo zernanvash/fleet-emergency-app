@@ -103,10 +103,16 @@ class _DistressScreenState extends State<DistressScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: const Color(0xFFF9F9FB),
       appBar: AppBar(
-        backgroundColor: Colors.red[900],
-        title: const Text('EMERGENCY ACTIVE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1.0),
+          child: Divider(color: Color(0xFFE4E4E7), height: 1.0, thickness: 1.0),
+        ),
+        title: const Text('EMERGENCY ACTIVE', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF09090B), fontSize: 15)),
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -118,22 +124,53 @@ class _DistressScreenState extends State<DistressScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.red[900]!.withOpacity(0.4),
-                border: Border.all(color: Colors.red[800]!.withOpacity(0.5)),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFFEF2F2), // Light red (var(--destructive-bg))
+                    Colors.white,
+                  ],
+                  stops: [0.0, 0.74],
+                ),
+                border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.24)),
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF18181B).withOpacity(0.05),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  )
+                ]
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  Icon(Icons.warning_rounded, size: 50, color: Colors.red[400]),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'SOS Signal Dispatched',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.12),
+                      border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.24)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFB91C1C), size: 24),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Reference Code: ${_activeReport.reportNo}',
-                    style: TextStyle(color: Colors.red[200]!.withOpacity(0.8), fontSize: 12),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'SOS Signal Dispatched',
+                          style: TextStyle(color: Color(0xFF09090B), fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Reference Code: ${_activeReport.reportNo}',
+                          style: const TextStyle(color: Color(0xFF71717A), fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -142,26 +179,32 @@ class _DistressScreenState extends State<DistressScreen> {
 
             // DATA SUMMARY
             Card(
-              color: Colors.grey[900],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE4E4E7)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('INCIDENT REPORT METADATA', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                    const Text('INCIDENT REPORT METADATA', style: TextStyle(color: Color(0xFF71717A), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                     const SizedBox(height: 12),
                     _buildMetaRow('Driver Name', widget.profile.user?.name ?? 'Unknown'),
                     _buildMetaRow('Vehicle Assigned', widget.profile.activeTrip?.vehiclePlate ?? 'None'),
                     _buildMetaRow('Active Route', widget.profile.activeTrip?.docNo ?? 'None'),
                     _buildMetaRow('GPS Coordinates', _activeReport.locationName ?? 'Unknown'),
-                    const Divider(color: Colors.grey),
-                    const SizedBox(height: 4),
-                    const Text('Distress Statement:', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Divider(color: Color(0xFFE4E4E7)),
+                    ),
+                    const Text('Distress Statement:', style: TextStyle(color: Color(0xFF71717A), fontSize: 11, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
                     Text(
                       _activeReport.description,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(color: Color(0xFF27272A), fontSize: 13, height: 1.4),
                     ),
                   ],
                 ),
@@ -171,53 +214,79 @@ class _DistressScreenState extends State<DistressScreen> {
 
             // UPDATE NOTES FORM
             Card(
-              color: Colors.grey[900],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE4E4E7)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('BROADCAST AN UPDATE', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                    const Text('BROADCAST AN UPDATE', style: TextStyle(color: Color(0xFF71717A), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _contactNameController,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: Color(0xFF09090B), fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Contact Person Name',
-                        labelStyle: TextStyle(color: Colors.grey),
+                        labelStyle: TextStyle(color: Color(0xFF71717A)),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF1D4ED8)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _contactPhoneController,
                       keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: Color(0xFF09090B), fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Contact Phone Number',
-                        labelStyle: TextStyle(color: Colors.grey),
+                        labelStyle: TextStyle(color: Color(0xFF71717A)),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF1D4ED8)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _notesController,
                       maxLines: 3,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: Color(0xFF09090B), fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Situation Update (e.g. Engine fire, Cargo safe, tire burst)',
-                        labelStyle: TextStyle(color: Colors.grey),
+                        labelStyle: TextStyle(color: Color(0xFF71717A)),
                         alignLabelWithHint: true,
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF1D4ED8)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: _isUpdating ? null : _updateDetails,
                       icon: const Icon(Icons.send_rounded, size: 16),
-                      label: const Text('SEND NOTES UPDATE', style: TextStyle(fontSize: 12)),
+                      label: const Text('SEND NOTES UPDATE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[800],
+                        backgroundColor: const Color(0xFF1D4ED8),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],
@@ -230,10 +299,11 @@ class _DistressScreenState extends State<DistressScreen> {
             ElevatedButton.icon(
               onPressed: () => _makeCall('+639171234567'),
               icon: const Icon(Icons.phone_in_talk, color: Colors.white),
-              label: const Text('CALL DISPATCH CENTER HOTLINE', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('CALL DISPATCH CENTER HOTLINE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
+                backgroundColor: const Color(0xFF22C55E), // var(--success)
                 foregroundColor: Colors.white,
+                elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -247,12 +317,12 @@ class _DistressScreenState extends State<DistressScreen> {
 
   Widget _buildMetaRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(value, style: const TextStyle(color: Color(0xFF09090B), fontSize: 12, fontWeight: FontWeight.bold)),
         ],
       ),
     );

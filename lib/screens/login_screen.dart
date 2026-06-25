@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: const Color(0xFFF9F9FB),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -85,17 +85,17 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // LOGO / BRANDING
-                Icon(
+                const Icon(
                   Icons.notifications_active_rounded,
                   size: 80,
-                  color: Colors.red[500],
+                  color: Color(0xFF1D4ED8),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'VOS FLEET SOS',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.headlineMedium?.copyWith(
-                    color: Colors.red[100],
+                    color: const Color(0xFF09090B),
                     fontWeight: FontWeight.w900,
                     letterSpacing: 2,
                   ),
@@ -104,17 +104,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Driver Distress Companion App',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[500],
+                    color: const Color(0xFF71717A),
                   ),
                 ),
                 const SizedBox(height: 40),
 
                 // LOGIN CARD
                 Card(
-                  color: Colors.grey[900],
+                  color: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.grey[850]!),
+                    side: const BorderSide(color: Color(0xFFE4E4E7)),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
@@ -122,49 +122,49 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Driver Email',
-                            labelStyle: TextStyle(color: Colors.grey[400]),
-                            prefixIcon: Icon(Icons.email, color: Colors.grey[500]),
-                            enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[800]!),
-                            ),
-                            focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.red[500]!),
-                            ),
-                          ),
-                        ),
+                           controller: _emailController,
+                           keyboardType: TextInputType.emailAddress,
+                           style: const TextStyle(color: Colors.black87),
+                           decoration: const InputDecoration(
+                             labelText: 'Driver Email',
+                             labelStyle: TextStyle(color: Color(0xFF71717A)),
+                             prefixIcon: Icon(Icons.email, color: Color(0xFF71717A)),
+                             enabledBorder: UnderlineInputBorder(
+                               borderSide: BorderSide(color: Color(0xFFE4E4E7)),
+                             ),
+                             focusedBorder: UnderlineInputBorder(
+                               borderSide: BorderSide(color: Color(0xFF1D4ED8)),
+                             ),
+                           ),
+                         ),
                         const SizedBox(height: 16),
                         TextField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            labelStyle: TextStyle(color: Colors.grey[400]),
-                            prefixIcon: Icon(Icons.lock, color: Colors.grey[500]),
-                            enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey[800]!),
-                            ),
-                            focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.red[500]!),
-                            ),
-                          ),
-                        ),
+                           controller: _passwordController,
+                           obscureText: true,
+                           style: const TextStyle(color: Colors.black87),
+                           decoration: const InputDecoration(
+                             labelText: 'Password',
+                             labelStyle: TextStyle(color: Color(0xFF71717A)),
+                             prefixIcon: Icon(Icons.lock, color: Color(0xFF71717A)),
+                             enabledBorder: UnderlineInputBorder(
+                               borderSide: BorderSide(color: Color(0xFFE4E4E7)),
+                             ),
+                             focusedBorder: UnderlineInputBorder(
+                               borderSide: BorderSide(color: Color(0xFF1D4ED8)),
+                             ),
+                           ),
+                         ),
                         const SizedBox(height: 24),
                         ElevatedButton(
-                          onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red[600],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                           onPressed: _isLoading ? null : _handleLogin,
+                           style: ElevatedButton.styleFrom(
+                             backgroundColor: const Color(0xFF1D4ED8),
+                             foregroundColor: Colors.white,
+                             padding: const EdgeInsets.symmetric(vertical: 16),
+                             shape: RoundedRectangleBorder(
+                               borderRadius: BorderRadius.circular(8),
+                             ),
+                           ),
                           child: _isLoading
                               ? const SizedBox(
                                   height: 20,
@@ -187,45 +187,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // DEV SERVER GATEWAY ACCORDION
                 TextButton.icon(
-                  onPressed: () => setState(() => _showConfig = !_showConfig),
-                  icon: Icon(
-                    _showConfig ? Icons.expand_less : Icons.settings_ethernet,
-                    color: Colors.grey[600],
-                    size: 16,
-                  ),
-                  label: Text(
-                    'Server Configuration',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                ),
+                   onPressed: () => setState(() => _showConfig = !_showConfig),
+                   icon: Icon(
+                     _showConfig ? Icons.expand_less : Icons.settings_ethernet,
+                     color: const Color(0xFF71717A),
+                     size: 16,
+                   ),
+                   label: const Text(
+                     'Server Configuration',
+                     style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                   ),
+                 ),
                 if (_showConfig) ...[
-                  Card(
-                    color: const Color(0xFF0A0A0A),
-                    elevation: 0,
-                    margin: const EdgeInsets.symmetric(horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Colors.grey[900]!),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: TextField(
-                        controller: _urlController,
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                        decoration: InputDecoration(
-                          labelText: 'API Gateway Endpoint',
-                          labelStyle: TextStyle(color: Colors.grey[600], fontSize: 11),
-                          isDense: true,
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey[900]!),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.red[700]!),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                   Card(
+                     color: const Color(0xFFF4F4F5),
+                     elevation: 0,
+                     margin: const EdgeInsets.symmetric(horizontal: 12),
+                     shape: RoundedRectangleBorder(
+                       borderRadius: BorderRadius.circular(8),
+                       side: const BorderSide(color: Color(0xFFE4E4E7)),
+                     ),
+                     child: Padding(
+                       padding: const EdgeInsets.all(12.0),
+                       child: TextField(
+                         controller: _urlController,
+                         style: const TextStyle(color: Colors.black87, fontSize: 12),
+                         decoration: const InputDecoration(
+                           labelText: 'API Gateway Endpoint',
+                           labelStyle: TextStyle(color: Color(0xFF71717A), fontSize: 11),
+                           isDense: true,
+                           enabledBorder: UnderlineInputBorder(
+                             borderSide: BorderSide(color: Color(0xFFE4E4E7)),
+                           ),
+                           focusedBorder: UnderlineInputBorder(
+                             borderSide: BorderSide(color: Color(0xFF1D4ED8)),
+                           ),
+                         ),
+                       ),
+                     ),
+                   ),
                 ],
               ],
             ),

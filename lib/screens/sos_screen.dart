@@ -194,16 +194,16 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: const Color(0xFFF9F9FB),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Colors.red[500]),
+              const CircularProgressIndicator(color: Color(0xFF1D4ED8)),
               const SizedBox(height: 16),
               Text(
                 _statusText,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Color(0xFF71717A)),
               ),
             ],
           ),
@@ -213,30 +213,33 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
 
     if (_profile?.isDriver == false) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: const Color(0xFFF9F9FB),
         body: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.lock_person, size: 80, color: Colors.amber[500]),
+              const Icon(Icons.lock_person, size: 80, color: Color(0xFFF59E0B)),
               const SizedBox(height: 16),
               Text(
                 'Access Restricted',
                 textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall?.copyWith(color: Colors.amber[100], fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(color: const Color(0xFF09090B), fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
                 'Your account is not registered as an SCM driver.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[400]),
+                style: const TextStyle(color: Color(0xFF71717A)),
               ),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _handleLogout,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber[700]),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1D4ED8),
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text('LOGOUT'),
               ),
             ],
@@ -246,13 +249,19 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: const Color(0xFFF9F9FB),
       appBar: AppBar(
-        backgroundColor: Colors.grey[900],
-        title: const Text('SOS DISTRESS BEACON', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1.0),
+          child: Divider(color: Color(0xFFE4E4E7), height: 1.0, thickness: 1.0),
+        ),
+        title: const Text('SOS DISTRESS BEACON', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 1, color: Color(0xFF09090B))),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Color(0xFF71717A)),
             onPressed: _handleLogout,
           ),
         ],
@@ -263,7 +272,10 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
           // 1. CONTEXT BLOCK
           Container(
             padding: const EdgeInsets.all(16.0),
-            color: Colors.grey[900],
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            ),
             child: Column(
               children: [
                 Row(
@@ -302,7 +314,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   colors: [
-                    Colors.red[900]!.withOpacity(0.15),
+                    const Color(0xFF1D4ED8).withOpacity(0.08),
                     Colors.transparent,
                   ],
                   radius: 0.8,
@@ -314,9 +326,9 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
                   Text(
                     _isHolding ? 'HOLDING SOS BROADCAST...' : 'HOLD BUTTON TO TRIGGER SOS',
                     style: TextStyle(
-                      color: _isHolding ? Colors.red[400] : Colors.grey[400],
+                      color: _isHolding ? const Color(0xFFEF4444) : const Color(0xFF71717A),
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: 12,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -424,18 +436,18 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
                     margin: const EdgeInsets.symmetric(horizontal: 24),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.amber[500]!.withOpacity(0.08),
-                      border: Border.all(color: Colors.amber[500]!.withOpacity(0.2)),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFFEF3C7),
+                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.28)),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        Icon(Icons.warning_amber_rounded, color: Colors.amber[600], size: 20),
-                        const SizedBox(width: 12),
-                        const Expanded(
+                        Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 20),
+                        SizedBox(width: 12),
+                        Expanded(
                           child: Text(
                             'Warning: Distressing will automatically alert SCM central dispatch operations with coordinates.',
-                            style: TextStyle(color: Colors.grey, fontSize: 11),
+                            style: TextStyle(color: Color(0xFF78350F), fontSize: 11),
                           ),
                         ),
                       ],
@@ -456,12 +468,12 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
       children: [
         Text(
           label.toUpperCase(),
-          style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Color(0xFF71717A), fontSize: 10, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+          style: const TextStyle(color: Color(0xFF09090B), fontSize: 13, fontWeight: FontWeight.w500),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
