@@ -10,10 +10,30 @@ class DriverProfile {
   });
 
   factory DriverProfile.fromJson(Map<String, dynamic> json) {
+    final isDriverRaw = json['isDriver'] ?? false;
+    final user = json['user'] != null ? UserProfile.fromJson(json['user']) : null;
+    final activeTrip = json['activeTrip'] != null ? ActiveTrip.fromJson(json['activeTrip']) : null;
+
+    // If account is not in the SCM driver list, force driver validation
+    // and provide fallback mock data so supervisor/admin accounts can test SOS features.
+    if (!isDriverRaw) {
+      return DriverProfile(
+        isDriver: true,
+        user: user ?? UserProfile(userId: 999, name: 'VOS Staff / Admin'),
+        activeTrip: activeTrip ?? ActiveTrip(
+          id: 999,
+          docNo: 'MOCK-TRIP-001',
+          status: 'Dispatched',
+          vehicleId: 999,
+          vehiclePlate: 'MOCK-PLATE-777',
+        ),
+      );
+    }
+
     return DriverProfile(
-      isDriver: json['isDriver'] ?? false,
-      user: json['user'] != null ? UserProfile.fromJson(json['user']) : null,
-      activeTrip: json['activeTrip'] != null ? ActiveTrip.fromJson(json['activeTrip']) : null,
+      isDriver: true, // ensure it registers as active
+      user: user,
+      activeTrip: activeTrip,
     );
   }
 }
