@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/emergency_report.dart';
 import '../services/api_service.dart';
+import '../services/directus_auth_service.dart';
 import '../models/driver_profile.dart';
 import 'distress_screen.dart';
 import 'login_screen.dart';
@@ -14,18 +16,12 @@ class SosScreen extends StatefulWidget {
   State<SosScreen> createState() => _SosScreenState();
 }
 
-class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMixin {
+class _SosScreenState extends State<SosScreen>
+    with SingleTickerProviderStateMixin {
   DriverProfile? _profile;
   Position? _position;
-  
-  bool _isLoading = true;
-  String _statusText = 'Initializing SOS Console...';
-  
-  // SOS Hold Animation states
-  double _holdProgress = 0.0;
-  Timer? _holdTimer;
-  bool _isHolding = false;
-  
+  StreamSubscription<Position>? _positionStreamSubscription;
+
   // Concentric Rings Animation
   late AnimationController _pulseController;
 
@@ -43,143 +39,243 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   @override
   void dispose() {
     _pulseController.dispose();
-    _holdTimer?.cancel();
+    _positionStreamSubscription?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _statusText = 'Resolving driver context...';
-    });
+  void _startLocationListening() {
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen(
+      (Position position) {
+        if (mounted) {
+          setState(() {
+            _position = position;
+          });
+        }
+      },
+      onError: (error) {
+        debugPrint('Location stream error: $error');
+      },
+    );
+  }
 
+  Future<void> _loadData() async {
     try {
-      // 1. Resolve Driver Profile & active trip
-      final profileData = await ApiService().getDriverProfile();
-      setState(() => _profile = profileData);
+      // 1. Resolve Driver Profile & active trip via Directus directly
+      final userId = await DirectusAuthService().getStoredUserId();
+      if (userId == null) {
+        // No session — go back to login
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        }
+        return;
+      }
+      final profileData = await DirectusAuthService().getDriverProfile(userId);
+      if (mounted) {
+        setState(() {
+          _profile = profileData;
+        });
+      }
 
       if (!profileData.isDriver) {
-        setState(() {
-          _isLoading = false;
-          _statusText = 'Access Restricted: Profile is not a driver.';
-        });
         return;
       }
 
       // 2. Resolve Geolocation
-      setState(() => _statusText = 'Resolving GPS coordinates...');
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-        );
-        setState(() => _position = pos);
-      }
-      
-      setState(() => _isLoading = false);
-    } catch (e) {
-      print('Load context error: $e');
-      setState(() {
-        _isLoading = false;
-        _statusText = 'Error initializing: $e';
-      });
-    }
-  }
-
-  // --- SOS Button hold handler ---
-
-  void _startHolding() {
-    HapticFeedback.heavyImpact();
-    setState(() {
-      _isHolding = true;
-      _holdProgress = 0.0;
-    });
-
-    _holdTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      setState(() {
-        _holdProgress += 0.025; // 40 ticks (50ms * 40 = 2 seconds)
-        
-        // Haptic feedback tick
-        if (timer.tick % 4 == 0) {
-          HapticFeedback.lightImpact();
+      try {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
         }
-      });
 
-      if (_holdProgress >= 1.0) {
-        _holdTimer?.cancel();
-        _triggerSOS();
+        if (permission == LocationPermission.always ||
+            permission == LocationPermission.whileInUse) {
+          // Attempt instant fallback to last known location first
+          final lastPos = await Geolocator.getLastKnownPosition();
+          if (lastPos != null && mounted) {
+            setState(() => _position = lastPos);
+          }
+
+          // Start continuous background location updates
+          _startLocationListening();
+
+          // Fetch current position with a shorter, more responsive timeout and medium accuracy
+          final pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 4),
+          );
+          if (mounted) {
+            setState(() => _position = pos);
+          }
+        }
+      } catch (geoError) {
+        debugPrint('Non-blocking GPS error: $geoError');
       }
-    });
+    } catch (e) {
+      debugPrint('Load context error: $e');
+    }
   }
 
-  void _stopHolding() {
-    _holdTimer?.cancel();
-    if (_holdProgress < 1.0) {
-      HapticFeedback.mediumImpact();
-      setState(() {
-        _isHolding = false;
-        _holdProgress = 0.0;
-      });
+  // --- SOS Button tap & confirm handler ---
+
+  void _confirmSOS() {
+    if (_profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please wait, resolving driver profile...'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFFB91C1C),
+        ),
+      );
+      return;
     }
+    HapticFeedback.heavyImpact();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Confirm SOS Alert',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF09090B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to broadcast a critical distress beacon to SCM dispatch? This will send your coordinates immediately.',
+            style: TextStyle(color: Color(0xFF71717A)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: Color(0xFF71717A),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                _triggerSOS(); // Proceed with SOS
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('SEND ALERT',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _triggerSOS() async {
     HapticFeedback.vibrate();
-    
-    setState(() {
-      _isLoading = true;
-      _statusText = 'Broadcasting emergency signals...';
-    });
 
-    try {
-      final lat = _position?.latitude;
-      final lon = _position?.longitude;
-      final locationName = lat != null ? 'GPS: ${lat.toStringAsFixed(6)}, ${lon?.toStringAsFixed(6)}' : 'Location Unknown';
-
-      final report = await ApiService().createEmergencyReport(
-        vehicleId: _profile?.activeTrip?.vehicleId,
-        driverUserId: _profile?.user?.userId,
-        dispatchPlanId: _profile?.activeTrip?.id,
-        locationName: locationName,
-        latitude: lat,
-        longitude: lon,
-        description: 'Distress Beacon broadcast from VOS Mobile application.',
-        contactName: _profile?.user?.name ?? 'Driver',
-        contactPhone: _profile?.user?.userContact ?? '',
+    final profile = _profile;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Driver profile is still loading.')),
       );
+      return;
+    }
 
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DistressScreen(
-              report: report,
-              profile: _profile!,
-            ),
+    // Try a last-second quick fetch of coordinates if the background stream hasn't resolved it yet.
+    if (_position == null) {
+      try {
+        final lastPos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 2),
+        );
+        _position = lastPos;
+      } catch (e) {
+        debugPrint('Last-second location fetch timed out or failed: $e');
+      }
+    }
+
+    final lat = _position?.latitude;
+    final lon = _position?.longitude;
+
+    final locationName = lat != null
+        ? 'GPS: ${lat.toStringAsFixed(6)}, ${lon?.toStringAsFixed(6)}'
+        : 'Location Unknown';
+
+    const description =
+        'Distress Beacon broadcast from VOS Mobile application.';
+    final dispatchRequest = _createEmergencyReport(
+      profile: profile,
+      locationName: locationName,
+      latitude: lat,
+      longitude: lon,
+      description: description,
+    );
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DistressScreen(
+            profile: profile,
+            dispatchRequest: dispatchRequest,
+            pendingLocationName: locationName,
+            pendingDescription: description,
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit SOS: $e')),
-        );
-        setState(() {
-          _isLoading = false;
-          _isHolding = false;
-          _holdProgress = 0.0;
-        });
-      }
+        ),
+      );
     }
   }
 
+  Future<EmergencyReport> _createEmergencyReport({
+    required DriverProfile profile,
+    required String locationName,
+    required double? latitude,
+    required double? longitude,
+    required String description,
+  }) {
+    return ApiService().createEmergencyReport(
+      vehicleId: profile.activeTrip?.vehicleId,
+      driverUserId: profile.user?.userId,
+      dispatchPlanId: profile.activeTrip?.id,
+      locationName: locationName,
+      latitude: latitude,
+      longitude: longitude,
+      description: description,
+      contactName: profile.user?.name ?? 'Driver',
+      contactPhone: profile.user?.userContact ?? '',
+    );
+  }
+
   Future<void> _handleLogout() async {
-    await ApiService().logout();
+    await DirectusAuthService().logout();
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -190,27 +286,6 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF9F9FB),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFF1D4ED8)),
-              const SizedBox(height: 16),
-              Text(
-                _statusText,
-                style: const TextStyle(color: Color(0xFF71717A)),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     if (_profile?.isDriver == false) {
       return Scaffold(
         backgroundColor: const Color(0xFFF9F9FB),
@@ -222,16 +297,19 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
             children: [
               const Icon(Icons.lock_person, size: 80, color: Color(0xFFF59E0B)),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Access Restricted',
                 textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall?.copyWith(color: const Color(0xFF09090B), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Color(0xFF09090B),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'Your account is not registered as an SCM driver.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF71717A)),
+                style: TextStyle(color: Color(0xFF71717A)),
               ),
               const SizedBox(height: 32),
               ElevatedButton(
@@ -258,7 +336,30 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
           preferredSize: Size.fromHeight(1.0),
           child: Divider(color: Color(0xFFE4E4E7), height: 1.0, thickness: 1.0),
         ),
-        title: const Text('SOS DISTRESS BEACON', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 1, color: Color(0xFF09090B))),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('SOS CONSOLE',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    letterSpacing: 1,
+                    color: Color(0xFF09090B))),
+            const SizedBox(height: 2),
+            Text(
+              _profile == null
+                  ? 'Loading profile...'
+                  : '${_profile?.user?.name ?? 'Driver'}  •  ${_profile?.activeTrip?.vehiclePlate ?? 'No Vehicle'}  •  Trip: ${_profile?.activeTrip?.docNo ?? 'None'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF71717A),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF71717A)),
@@ -266,195 +367,159 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
           ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _buildSosActionPanel(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSosActionPanel() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment.topCenter,
+          radius: 0.9,
+          colors: [
+            const Color(0xFF1D4ED8).withValues(alpha: 0.1),
+            Colors.white,
+          ],
+        ),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: Column(
         children: [
-          // 1. CONTEXT BLOCK
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+          const Text(
+            'EMERGENCY ACTION',
+            style: TextStyle(
+              color: Color(0xFF71717A),
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+              letterSpacing: 1.2,
             ),
-            child: Column(
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap SOS only after confirming the route and location details.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF52525B),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 26),
+          GestureDetector(
+            onTap: _confirmSOS,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoItem('Driver', _profile?.user?.name ?? 'Unknown'),
-                    ),
-                    Expanded(
-                      child: _buildInfoItem('Vehicle Plate', _profile?.activeTrip?.vehiclePlate ?? 'Not Assigned'),
-                    ),
-                  ],
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    final secondPulse = (_pulseController.value + 0.5) % 1.0;
+                    return Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        _buildPulseRing(_pulseController.value, 0.14),
+                        _buildPulseRing(secondPulse, 0.09),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoItem('Trip Sequence', _profile?.activeTrip?.docNo ?? 'No active trip'),
-                    ),
-                    Expanded(
-                      child: _buildInfoItem(
-                        'GPS Position',
-                        _position != null 
-                            ? '${_position!.latitude.toStringAsFixed(4)}, ${_position!.longitude.toStringAsFixed(4)}'
-                            : 'Locating...',
+                Semantics(
+                  button: true,
+                  label: 'Send SOS distress alert to dispatch',
+                  child: Material(
+                    elevation: 12,
+                    shape: const CircleBorder(),
+                    shadowColor:
+                        const Color(0xFFDC2626).withValues(alpha: 0.35),
+                    child: Container(
+                      width: 154,
+                      height: 154,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF7F1D1D),
+                          width: 4,
+                        ),
+                        gradient: const RadialGradient(
+                          colors: [
+                            Color(0xFFEF4444),
+                            Color(0xFFB91C1C),
+                          ],
+                        ),
+                      ),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.notifications_active_rounded,
+                            size: 40,
+                            color: Colors.white,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'SOS',
+                            style: TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          Text(
+                            'SEND ALERT',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white70,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
-          
-          // 2. SOS BUTTON AREA
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF1D4ED8).withOpacity(0.08),
-                    Colors.transparent,
-                  ],
-                  radius: 0.8,
+          const SizedBox(height: 26),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              border: Border.all(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.28),
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFF59E0B),
+                  size: 20,
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _isHolding ? 'HOLDING SOS BROADCAST...' : 'HOLD BUTTON TO TRIGGER SOS',
-                    style: TextStyle(
-                      color: _isHolding ? const Color(0xFFEF4444) : const Color(0xFF71717A),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      letterSpacing: 1.2,
-                    ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Dispatch receives coordinates, trip context, and driver contact after confirmation.',
+                    style: TextStyle(color: Color(0xFF78350F), fontSize: 11),
                   ),
-                  const SizedBox(height: 32),
-                  
-                  // THE PANIC GESTURE TRIGGER
-                  GestureDetector(
-                    onTapDown: (_) => _startHolding(),
-                    onTapUp: (_) => _stopHolding(),
-                    onTapCancel: () => _stopHolding(),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Animated Concentric Pulsing Rings
-                        AnimatedBuilder(
-                          animation: _pulseController,
-                          builder: (context, child) {
-                            return Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Container(
-                                  width: 160 + (_pulseController.value * 60),
-                                  height: 160 + (_pulseController.value * 60),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.red[500]!.withOpacity((1 - _pulseController.value) * 0.15),
-                                  ),
-                                ),
-                                Container(
-                                  width: 160 + ((_pulseController.value + 0.5) % 1.0 * 60),
-                                  height: 160 + ((_pulseController.value + 0.5) % 1.0 * 60),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.red[500]!.withOpacity((1 - (_pulseController.value + 0.5) % 1.0) * 0.1),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        
-                        // Circular Hold Progress Tracker Overlay
-                        SizedBox(
-                          width: 170,
-                          height: 170,
-                          child: CircularProgressIndicator(
-                            value: _holdProgress,
-                            strokeWidth: 6,
-                            backgroundColor: Colors.transparent,
-                            color: Colors.red[500],
-                          ),
-                        ),
-
-                        // Physical Circular Button UI
-                        Material(
-                          elevation: 12,
-                          shape: const CircleBorder(),
-                          shadowColor: Colors.red[500]!.withOpacity(0.4),
-                          child: Container(
-                            width: 150,
-                            height: 150,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.red[900]!, width: 4),
-                              gradient: RadialGradient(
-                                colors: [
-                                  Colors.red[500]!,
-                                  Colors.red[800]!,
-                                ],
-                              ),
-                            ),
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.notifications_active_rounded, size: 40, color: Colors.white),
-                                SizedBox(height: 4),
-                                Text(
-                                  'SOS',
-                                  style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                                Text(
-                                  'DISTRESS',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  // WARN BLOCK
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.28)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 20),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Warning: Distressing will automatically alert SCM central dispatch operations with coordinates.',
-                            style: TextStyle(color: Color(0xFF78350F), fontSize: 11),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -462,22 +527,21 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildInfoItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(color: Color(0xFF71717A), fontSize: 10, fontWeight: FontWeight.bold),
+  Widget _buildPulseRing(double progress, double maxOpacity) {
+    return Transform.scale(
+      scale: 1.0 + (progress * 0.45),
+      child: Container(
+        width: 154,
+        height: 154,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: const Color(0xFFEF4444)
+                .withValues(alpha: (1.0 - progress) * maxOpacity),
+            width: 2.0,
+          ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(color: Color(0xFF09090B), fontSize: 13, fontWeight: FontWeight.w500),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+      ),
     );
   }
 }

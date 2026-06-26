@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/driver_profile.dart';
@@ -55,6 +54,48 @@ class ApiService {
   }
 
   String get baseUrl => _dio.options.baseUrl;
+
+  /// Auto-discover the working Next.js BFF endpoint by testing candidates in parallel.
+  Future<void> autoDiscoverBaseUrl() async {
+    final candidates = [
+      'http://100.105.235.94:3000',
+      'http://10.0.2.2:3000',
+      'http://localhost:3000',
+    ];
+
+    print('Auto-discovering Next.js BFF URL among candidates: $candidates');
+
+    final results = await Future.wait(
+      candidates.map((url) async {
+        try {
+          final tempDio = Dio(BaseOptions(
+            connectTimeout: const Duration(milliseconds: 1500),
+            receiveTimeout: const Duration(milliseconds: 1500),
+          ));
+          final response = await tempDio.get(url);
+          if (response.statusCode != null && response.statusCode! < 500) {
+            return url;
+          }
+        } catch (e) {
+          if (e is DioException && e.response != null) {
+            final status = e.response!.statusCode;
+            if (status != null && status < 500) {
+              return url;
+            }
+          }
+        }
+        return null;
+      }),
+    );
+
+    final workingUrl = results.firstWhere((url) => url != null, orElse: () => null);
+    if (workingUrl != null) {
+      setBaseUrl(workingUrl);
+      print('Next.js BFF connection established at: $workingUrl');
+    } else {
+      print('Auto-discovery failed to reach Next.js BFF. Defaulting to: $baseUrl');
+    }
+  }
 
   /// Clear session data on logout
   Future<void> logout() async {
@@ -127,7 +168,7 @@ class ApiService {
         'vehicle_id': vehicleId,
         'driver_user_id': driverUserId,
         'dispatch_plan_id': dispatchPlanId,
-        'occurred_at': DateTime.now().toUtc().toIso8601String(),
+        'occurred_at': DateTime.now().toUtc().add(const Duration(hours: 8)).toIso8601String().replaceAll('Z', ''),
         'location_name': locationName,
         'latitude': latitude,
         'longitude': longitude,
@@ -139,6 +180,9 @@ class ApiService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         // Enriched response contains generated Reference Number ER-XXXX-XXXX
         final reportData = response.data['report'];
+        if (reportData == null) {
+          throw Exception('API response was successful but report payload was missing.');
+        }
         return EmergencyReport.fromJson(reportData);
       }
       throw Exception('Failed to create emergency report: Code ${response.statusCode}');
@@ -159,6 +203,9 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final reportData = response.data['report'];
+        if (reportData == null) {
+          throw Exception('API response was successful but report payload was missing.');
+        }
         return EmergencyReport.fromJson(reportData);
       }
       throw Exception('Failed to update incident details: Code ${response.statusCode}');
@@ -167,4 +214,27 @@ class ApiService {
       rethrow;
     }
   }
+
+  /// Cancel/resolve the active emergency report when driver is being helped
+  Future<EmergencyReport> resolveEmergencyReport(int reportId, String reason) async {
+    try {
+      final response = await _dio.patch('/api/scm/fleet-management/emergency-management/reports/$reportId', data: {
+        'status': 'cancelled',
+        'cancelled_reason': reason,
+      });
+
+      if (response.statusCode == 200) {
+        final reportData = response.data['report'];
+        if (reportData == null) {
+          throw Exception('API response was successful but report payload was missing.');
+        }
+        return EmergencyReport.fromJson(reportData);
+      }
+      throw Exception('Failed to resolve emergency report: Code ${response.statusCode}');
+    } catch (e) {
+      print('ApiService resolveEmergencyReport error: $e');
+      rethrow;
+    }
+  }
 }
+
