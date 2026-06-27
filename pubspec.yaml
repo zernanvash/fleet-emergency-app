@@ -23,6 +23,12 @@ dependencies:
   # Direct dialing capabilities
   url_launcher: ^6.2.0
 
+  # Camera / gallery access for incident photos
+  image_picker: ^1.1.2
+
+  # Background execution service
+  flutter_background_service: ^5.0.7
+
   # Cupertino Icons
   cupertino_icons: ^1.0.5
 

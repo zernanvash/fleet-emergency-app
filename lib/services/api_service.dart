@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/driver_profile.dart';
@@ -11,8 +12,8 @@ class ApiService {
     _dio = Dio(BaseOptions(
       // Default gateway (port 3000 where our Next.js BFF is running)
       baseUrl: 'http://100.105.235.94:3000',
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -160,6 +161,7 @@ class ApiService {
     required String description,
     required String contactName,
     required String contactPhone,
+    List<String> attachments = const [],
   }) async {
     try {
       final response = await _dio.post('/api/scm/fleet-management/emergency-management/reports', data: {
@@ -175,6 +177,7 @@ class ApiService {
         'description': description,
         'contact_name': contactName,
         'contact_phone': contactPhone,
+        if (attachments.isNotEmpty) 'attachments': jsonEncode(attachments),
       });
 
       if (response.statusCode == 201 || response.statusCode == 200) {
@@ -187,6 +190,9 @@ class ApiService {
       }
       throw Exception('Failed to create emergency report: Code ${response.statusCode}');
     } catch (e) {
+      if (e is DioException) {
+        print('ApiService createEmergencyReport details: ${e.response?.data}');
+      }
       print('ApiService createEmergencyReport error: $e');
       rethrow;
     }

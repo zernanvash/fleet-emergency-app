@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/driver_profile.dart';
 import '../models/emergency_report.dart';
 import '../services/api_service.dart';
+import '../services/offline_queue.dart';
 
 class DistressScreen extends StatefulWidget {
   final EmergencyReport? report;
@@ -10,6 +12,7 @@ class DistressScreen extends StatefulWidget {
   final Future<EmergencyReport>? dispatchRequest;
   final String? pendingLocationName;
   final String? pendingDescription;
+  final bool isQueued;
 
   const DistressScreen({
     super.key,
@@ -18,6 +21,7 @@ class DistressScreen extends StatefulWidget {
     this.dispatchRequest,
     this.pendingLocationName,
     this.pendingDescription,
+    this.isQueued = false,
   });
 
   @override
@@ -29,7 +33,9 @@ class _DistressScreenState extends State<DistressScreen> {
 
   bool _isDispatching = false;
   bool _isUpdating = false;
+  bool _isQueued = false;
   String? _dispatchError;
+  Timer? _queueRetryTimer;
 
   bool get _hasServerReport => _activeReport.id > 0;
 
@@ -37,8 +43,10 @@ class _DistressScreenState extends State<DistressScreen> {
   void initState() {
     super.initState();
     _activeReport = widget.report ?? _buildPendingReport();
+    _isQueued = widget.isQueued;
     _isDispatching = widget.report == null && widget.dispatchRequest != null;
     _listenForDispatchResult();
+    if (_isQueued) _startQueueRetry();
   }
 
   EmergencyReport _buildPendingReport() {
@@ -89,7 +97,30 @@ class _DistressScreenState extends State<DistressScreen> {
 
   @override
   void dispose() {
+    _queueRetryTimer?.cancel();
     super.dispose();
+  }
+
+  /// Periodically pings the BFF and flushes the offline queue when reachable.
+  void _startQueueRetry() {
+    _queueRetryTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
+      if (!mounted) return;
+      try {
+        final result = await OfflineQueue().flush();
+        if (result != null && mounted) {
+          final report = EmergencyReport.fromJson(result);
+          setState(() {
+            _activeReport = report;
+            _isQueued = false;
+            _dispatchError = null;
+          });
+          _queueRetryTimer?.cancel();
+          _showSnack('SOS signal confirmed — dispatch notified.');
+        }
+      } catch (_) {
+        // Still offline — keep retrying.
+      }
+    });
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -206,6 +237,45 @@ class _DistressScreenState extends State<DistressScreen> {
     );
   }
 
+  Widget _buildOfflineBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.wifi_off_rounded, color: Color(0xFFB45309), size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SOS QUEUED OFFLINE',
+                  style: TextStyle(
+                    color: Color(0xFF78350F),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Your report is saved on this device and will be sent automatically when a connection is established.',
+                  style: TextStyle(color: Color(0xFF92400E), fontSize: 11, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -236,6 +306,8 @@ class _DistressScreenState extends State<DistressScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_isQueued) _buildOfflineBanner(),
+                if (_isQueued) const SizedBox(height: 12),
                 _buildDispatchHero(),
                 const SizedBox(height: 16),
                 _buildActiveBeaconPanel(),

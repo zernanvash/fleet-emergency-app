@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/emergency_report.dart';
 import '../services/api_service.dart';
 import '../services/directus_auth_service.dart';
+import '../services/upload_service.dart';
+import '../services/offline_queue.dart';
 import '../models/driver_profile.dart';
 import 'distress_screen.dart';
 import 'login_screen.dart';
@@ -231,47 +236,133 @@ class _SosScreenState extends State<SosScreen>
 
     const description =
         'Distress Beacon broadcast from VOS Mobile application.';
-    final dispatchRequest = _createEmergencyReport(
-      profile: profile,
-      locationName: locationName,
-      latitude: lat,
-      longitude: lon,
-      description: description,
+
+    // -- Photo capture step --
+    final List<String> localPhotoPaths = [];
+    final List<String> uploadedUuids = [];
+    if (mounted) {
+      final picked = await _showPhotoCaptureSheet();
+      localPhotoPaths.addAll(picked);
+    }
+
+    // Try to upload photos immediately. If BFF is unreachable, upload will
+    // be deferred with the report inside OfflineQueue.
+    for (final path in localPhotoPaths) {
+      try {
+        final uuid = await UploadService().uploadPhoto(File(path), ApiService().baseUrl);
+        uploadedUuids.add(uuid);
+      } catch (e) {
+        debugPrint('Photo upload failed (will retry with report if offline): $e');
+      }
+    }
+
+    final reportPayload = {
+      'vehicle_id': profile.activeTrip?.vehicleId,
+      'driver_user_id': profile.user?.userId,
+      'dispatch_plan_id': profile.activeTrip?.id,
+      'location_name': locationName,
+      'latitude': lat,
+      'longitude': lon,
+      'description': description,
+      'contact_name': profile.user?.name ?? 'Driver',
+      'contact_phone': profile.user?.userContact ?? '',
+    };
+
+    // Show a modal progress dialog during the fast 5-second attempt
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          color: Colors.white,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  color: Color(0xFFDC2626),
+                ),
+                SizedBox(width: 16),
+                Text(
+                  'Broadcasting SOS...',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF09090B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
 
+    EmergencyReport? report;
+    bool isQueued = false;
+
+    try {
+      report = await ApiService()
+          .createEmergencyReport(
+            vehicleId: profile.activeTrip?.vehicleId,
+            driverUserId: profile.user?.userId,
+            dispatchPlanId: profile.activeTrip?.id,
+            locationName: locationName,
+            latitude: lat,
+            longitude: lon,
+            description: description,
+            contactName: profile.user?.name ?? 'Driver',
+            contactPhone: profile.user?.userContact ?? '',
+            attachments: uploadedUuids,
+          )
+          .timeout(const Duration(seconds: 4));
+    } catch (e) {
+      isQueued = true;
+      final pendingPayload = Map<String, dynamic>.from(reportPayload);
+      if (uploadedUuids.isNotEmpty) {
+        pendingPayload['attachments'] = jsonEncode(uploadedUuids);
+      }
+      await OfflineQueue().enqueue(pendingPayload, localPhotoPaths);
+    }
+
     if (mounted) {
+      Navigator.pop(context); // Close the loading dialog
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => DistressScreen(
             profile: profile,
-            dispatchRequest: dispatchRequest,
+            report: report,
             pendingLocationName: locationName,
             pendingDescription: description,
+            isQueued: isQueued,
           ),
         ),
       );
     }
   }
 
-  Future<EmergencyReport> _createEmergencyReport({
-    required DriverProfile profile,
-    required String locationName,
-    required double? latitude,
-    required double? longitude,
-    required String description,
-  }) {
-    return ApiService().createEmergencyReport(
-      vehicleId: profile.activeTrip?.vehicleId,
-      driverUserId: profile.user?.userId,
-      dispatchPlanId: profile.activeTrip?.id,
-      locationName: locationName,
-      latitude: latitude,
-      longitude: longitude,
-      description: description,
-      contactName: profile.user?.name ?? 'Driver',
-      contactPhone: profile.user?.userContact ?? '',
+  /// Shows a bottom sheet where the driver can capture up to 3 photos.
+  /// Returns a list of local file paths for the selected images.
+  Future<List<String>> _showPhotoCaptureSheet() async {
+    final paths = <String>[];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _PhotoCaptureSheet(
+        onDone: (selected) {
+          paths.addAll(selected);
+          Navigator.pop(ctx);
+        },
+      ),
     );
+    return paths;
   }
 
   Future<void> _handleLogout() async {
@@ -540,6 +631,166 @@ class _SosScreenState extends State<SosScreen>
                 .withValues(alpha: (1.0 - progress) * maxOpacity),
             width: 2.0,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Photo capture bottom sheet
+// ---------------------------------------------------------------------------
+
+class _PhotoCaptureSheet extends StatefulWidget {
+  final void Function(List<String> paths) onDone;
+  const _PhotoCaptureSheet({required this.onDone});
+
+  @override
+  State<_PhotoCaptureSheet> createState() => _PhotoCaptureSheetState();
+}
+
+class _PhotoCaptureSheetState extends State<_PhotoCaptureSheet> {
+  final _picker = ImagePicker();
+  final _photos = <String>[];
+  // ignore: prefer_final_fields — kept mutable for future upload-in-progress indicator
+  bool _uploading = false;
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    if (_photos.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 3 photos allowed.')),
+      );
+      return;
+    }
+    final xFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 75,
+      maxWidth: 1920,
+    );
+    if (xFile != null) {
+      setState(() => _photos.add(xFile.path));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ADD INCIDENT PHOTOS',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                          letterSpacing: 0.8,
+                          color: Color(0xFF09090B),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Optional — up to 3 photos to help dispatch classify breakdown aid.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Thumbnail row
+            if (_photos.isNotEmpty) ...[
+              SizedBox(
+                height: 88,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _photos.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) => Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          File(_photos[i]),
+                          width: 88,
+                          height: 88,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _photos.removeAt(i)),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFB91C1C),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(3),
+                            child: const Icon(Icons.close, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _photos.length < 3 ? () => _pickPhoto(ImageSource.camera) : null,
+                    icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                    label: const Text('Camera'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _photos.length < 3 ? () => _pickPhoto(ImageSource.gallery) : null,
+                    icon: const Icon(Icons.photo_library_outlined, size: 18),
+                    label: const Text('Gallery'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _uploading ? null : () => widget.onDone(_photos),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB91C1C),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: Text(
+                _photos.isEmpty ? 'SKIP & SEND SOS' : 'SEND SOS WITH ${_photos.length} PHOTO${_photos.length > 1 ? "S" : ""}',
+                style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
+              ),
+            ),
+          ],
         ),
       ),
     );

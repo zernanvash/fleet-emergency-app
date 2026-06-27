@@ -3,12 +3,26 @@ import 'screens/login_screen.dart';
 import 'screens/sos_screen.dart';
 import 'services/api_service.dart';
 import 'services/directus_auth_service.dart';
+import 'services/offline_queue.dart';
+import 'services/background_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize background sync service configuration
+  await BackgroundSyncService().initialize();
+
   // Auto-discover working Next.js BFF base URL
   await ApiService().autoDiscoverBaseUrl();
+
+  // Flush any pending offline SOS report now that we may have connectivity.
+  if (await OfflineQueue().hasPending()) {
+    final result = await OfflineQueue().flush();
+    if (result == null) {
+      // Still offline — start background service to monitor connection in background
+      await BackgroundSyncService().start();
+    }
+  }
 
   // Check if a Directus session exists (user_id stored locally)
   final hasActiveSession = await DirectusAuthService().hasSession();

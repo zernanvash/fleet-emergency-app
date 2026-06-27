@@ -37,4 +37,17 @@ class EmergencyReport {
       contactPhone: json['contact_phone'],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'report_no': reportNo,
+        'incident_type': incidentType,
+        'severity': severity,
+        'status': status,
+        'location_name': locationName,
+        'description': description,
+        'reported_at': reportedAt,
+        'contact_name': contactName,
+        'contact_phone': contactPhone,
+      };
 }
