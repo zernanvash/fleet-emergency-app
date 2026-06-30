@@ -35,7 +35,10 @@ class DirectusAuthService {
       baseUrl: _springBase,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
     ));
 
     _directus = Dio(BaseOptions(
@@ -76,7 +79,8 @@ class DirectusAuthService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('directus_user_id', userId);
         await prefs.setString('directus_user_email', email.trim());
-        await prefs.setString('directus_user_name', '$firstName $lastName'.trim());
+        await prefs.setString(
+            'directus_user_name', '$firstName $lastName'.trim());
         await prefs.setString('spring_jwt', token);
         await prefs.setString('vos_access_token', token);
       }
@@ -89,16 +93,19 @@ class DirectusAuthService {
       if (status == 401 || status == 403) {
         final msg = body is Map ? (body['message'] ?? '') : '';
         if (msg.toString().toLowerCase().contains('block')) {
-          throw DirectusAuthException('Your account has been blocked. Contact your administrator.');
+          throw DirectusAuthException(
+              'Your account has been blocked. Contact your administrator.');
         }
         if (msg.toString().toLowerCase().contains('lock')) {
-          throw DirectusAuthException('Account is temporarily locked. Try again later.');
+          throw DirectusAuthException(
+              'Account is temporarily locked. Try again later.');
         }
         return null; // Invalid credentials
       }
 
       // Network / server unreachable
-      throw DirectusAuthException('Cannot reach the VOS server. Check your connection.');
+      throw DirectusAuthException(
+          'Cannot reach the VOS server. Check your connection.');
     } catch (e) {
       throw DirectusAuthException('Login error: ${e.toString()}');
     }
@@ -108,9 +115,11 @@ class DirectusAuthService {
 
   /// Fetches the driver profile and active trip for [userId].
   Future<DriverProfile> getDriverProfile(int userId) async {
-    // 1. Fetch user record
-    Map<String, dynamic>? userRow;
+    final prefs = await SharedPreferences.getInstance();
+
     try {
+      // 1. Fetch user record
+      Map<String, dynamic>? userRow;
       final userRes = await _directus.get(
         '/items/user'
         '?filter=${Uri.encodeComponent('{"user_id":{"_eq":$userId}}')}'
@@ -121,18 +130,9 @@ class DirectusAuthService {
       if (ul != null && ul.isNotEmpty) {
         userRow = ul[0] as Map<String, dynamic>;
       }
-    } catch (e) {
-      print('Directus user fetch error: $e');
-    }
 
-    // Fallback: use name from stored prefs if Directus fetch fails
-    final prefs = await SharedPreferences.getInstance();
-    final storedName = prefs.getString('directus_user_name') ?? 'VOS User';
-    final storedEmail = prefs.getString('directus_user_email') ?? '';
-
-    // 2. Check if they are a registered driver
-    Map<String, dynamic>? driverRow;
-    try {
+      // 2. Check if they are a registered driver
+      Map<String, dynamic>? driverRow;
       final driverRes = await _directus.get(
         '/items/driver'
         '?filter=${Uri.encodeComponent('{"user_id":{"_eq":$userId}}')}'
@@ -143,13 +143,9 @@ class DirectusAuthService {
       if (dl != null && dl.isNotEmpty) {
         driverRow = dl[0] as Map<String, dynamic>;
       }
-    } catch (e) {
-      print('Directus driver fetch error: $e');
-    }
 
-    // 3. Find active trip (post_dispatch_plan with status = Dispatched)
-    Map<String, dynamic>? tripRow;
-    try {
+      // 3. Find active trip (post_dispatch_plan with status = Dispatched)
+      Map<String, dynamic>? tripRow;
       final tripFilter = Uri.encodeComponent(
         '{"_and":[{"status":{"_eq":"Dispatched"}},{"driver_id":{"_eq":$userId}}]}',
       );
@@ -164,93 +160,108 @@ class DirectusAuthService {
       if (tl != null && tl.isNotEmpty) {
         tripRow = tl[0] as Map<String, dynamic>;
       }
-    } catch (e) {
-      print('Directus active trip fetch error: $e');
-    }
 
-    // 4. Fallback: latest trip plan of any status if no active Dispatched trip is found
-    if (tripRow == null) {
-      try {
-        final tripFilter = Uri.encodeComponent(
+      // 4. Fallback: latest trip plan of any status if no active Dispatched trip is found
+      if (tripRow == null) {
+        final tripFilter2 = Uri.encodeComponent(
           '{"driver_id":{"_eq":$userId}}',
         );
-        final tripRes = await _directus.get(
+        final tripRes2 = await _directus.get(
           '/items/post_dispatch_plan'
-          '?filter=$tripFilter'
+          '?filter=$tripFilter2'
           '&fields=id,doc_no,status,vehicle_id'
           '&limit=1'
           '&sort=-date_encoded',
         );
-        final tl = tripRes.data['data'] as List?;
-        if (tl != null && tl.isNotEmpty) {
-          tripRow = tl[0] as Map<String, dynamic>;
+        final tl2 = tripRes2.data['data'] as List?;
+        if (tl2 != null && tl2.isNotEmpty) {
+          tripRow = tl2[0] as Map<String, dynamic>;
         }
-      } catch (e) {
-        print('Directus backup trip fetch error: $e');
-      }
-    }
-
-    // 5. Fetch vehicle plate details if vehicle_id is present
-    String? vehiclePlate;
-    int? vehicleId;
-    if (tripRow != null && tripRow['vehicle_id'] != null) {
-      final vId = tripRow['vehicle_id'];
-      if (vId is int) {
-        vehicleId = vId;
-      } else if (vId is Map) {
-        vehicleId = vId['id'] ?? vId['vehicle_id'];
-      } else {
-        vehicleId = int.tryParse(vId.toString());
       }
 
-      if (vehicleId != null) {
-        try {
-          final vehRes = await _directus.get('/items/vehicles/$vehicleId?fields=vehicle_plate');
+      // 5. Fetch vehicle plate details if vehicle_id is present
+      String? vehiclePlate;
+      int? vehicleId;
+      if (tripRow != null && tripRow['vehicle_id'] != null) {
+        final vId = tripRow['vehicle_id'];
+        if (vId is int) {
+          vehicleId = vId;
+        } else if (vId is Map) {
+          vehicleId = vId['id'] ?? vId['vehicle_id'];
+        } else {
+          vehicleId = int.tryParse(vId.toString());
+        }
+
+        if (vehicleId != null) {
+          final vehRes = await _directus
+              .get('/items/vehicles/$vehicleId?fields=vehicle_plate');
           final data = vehRes.data['data'];
           if (data is Map) {
             vehiclePlate = data['vehicle_plate']?.toString();
           }
-        } catch (e) {
-          print('Directus vehicle fetch error: $e');
         }
       }
-    }
 
-    // Build UserProfile
-    final userProfile = UserProfile(
-      userId: userRow?['user_id'] ?? userId,
-      name: userRow != null
-          ? '${userRow['user_fname'] ?? ''} ${userRow['user_lname'] ?? ''}'.trim()
-          : storedName,
-      userContact: userRow?['user_contact']?.toString(),
-      userEmail: userRow?['user_email']?.toString() ?? storedEmail,
-    );
+      final storedName = prefs.getString('directus_user_name') ?? 'VOS User';
+      final storedEmail = prefs.getString('directus_user_email') ?? '';
 
-    // Build ActiveTrip
-    ActiveTrip? activeTrip;
-    if (tripRow != null) {
-      activeTrip = ActiveTrip(
-        id: tripRow['id'] ?? 0,
-        docNo: tripRow['doc_no'] ?? '',
-        status: tripRow['status']?.toString(),
-        vehicleId: vehicleId,
-        vehiclePlate: vehiclePlate,
+      // Build UserProfile
+      final userProfile = UserProfile(
+        userId: userRow?['user_id'] ?? userId,
+        name: userRow != null
+            ? '${userRow['user_fname'] ?? ''} ${userRow['user_lname'] ?? ''}'
+                .trim()
+            : storedName,
+        userContact: userRow?['user_contact']?.toString(),
+        userEmail: userRow?['user_email']?.toString() ?? storedEmail,
       );
-    }
 
-    if (driverRow == null) {
-      return DriverProfile(
-        isDriver: false,
+      // Build ActiveTrip
+      ActiveTrip? activeTrip;
+      if (tripRow != null) {
+        activeTrip = ActiveTrip(
+          id: tripRow['id'] ?? 0,
+          docNo: tripRow['doc_no'] ?? '',
+          status: tripRow['status']?.toString(),
+          vehicleId: vehicleId,
+          vehiclePlate: vehiclePlate,
+        );
+      }
+
+      final profile = DriverProfile(
+        isDriver: driverRow != null,
         user: userProfile,
+        activeTrip: activeTrip,
+      );
+
+      // Save to cache
+      await prefs.setString(
+          'cached_driver_profile_$userId', jsonEncode(profile.toJson()));
+      return profile;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Directus getDriverProfile API error (falling back to cache): $e');
+
+      final cachedJson = prefs.getString('cached_driver_profile_$userId');
+      if (cachedJson != null) {
+        try {
+          return DriverProfile.fromJson(jsonDecode(cachedJson));
+        } catch (decodeErr) {
+          // ignore: avoid_print
+          print('Failed to decode cached driver profile: $decodeErr');
+        }
+      }
+
+      // Offline placeholder fallback if there is no cache
+      final storedName = prefs.getString('directus_user_name') ?? 'VOS User';
+      final storedEmail = prefs.getString('directus_user_email') ?? '';
+      return DriverProfile(
+        isDriver: true, // Allow offline access as registered driver fallback
+        user: UserProfile(
+            userId: userId, name: storedName, userEmail: storedEmail),
         activeTrip: null,
       );
     }
-
-    return DriverProfile(
-      isDriver: true,
-      user: userProfile,
-      activeTrip: activeTrip,
-    );
   }
 
   // ── Session helpers ───────────────────────────────────────────────────────────

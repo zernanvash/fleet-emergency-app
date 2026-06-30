@@ -249,10 +249,12 @@ class _SosScreenState extends State<SosScreen>
     // be deferred with the report inside OfflineQueue.
     for (final path in localPhotoPaths) {
       try {
-        final uuid = await UploadService().uploadPhoto(File(path), ApiService().baseUrl);
+        final uuid =
+            await UploadService().uploadPhoto(File(path), ApiService().baseUrl);
         uploadedUuids.add(uuid);
       } catch (e) {
-        debugPrint('Photo upload failed (will retry with report if offline): $e');
+        debugPrint(
+            'Photo upload failed (will retry with report if offline): $e');
       }
     }
 
@@ -699,7 +701,8 @@ class _PhotoCaptureSheetState extends State<_PhotoCaptureSheet> {
                       SizedBox(height: 2),
                       Text(
                         'Optional — up to 3 photos to help dispatch classify breakdown aid.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                        style:
+                            TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                       ),
                     ],
                   ),
@@ -737,7 +740,8 @@ class _PhotoCaptureSheetState extends State<_PhotoCaptureSheet> {
                               shape: BoxShape.circle,
                             ),
                             padding: const EdgeInsets.all(3),
-                            child: const Icon(Icons.close, size: 12, color: Colors.white),
+                            child: const Icon(Icons.close,
+                                size: 12, color: Colors.white),
                           ),
                         ),
                       ),
@@ -752,24 +756,30 @@ class _PhotoCaptureSheetState extends State<_PhotoCaptureSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _photos.length < 3 ? () => _pickPhoto(ImageSource.camera) : null,
+                    onPressed: _photos.length < 3
+                        ? () => _pickPhoto(ImageSource.camera)
+                        : null,
                     icon: const Icon(Icons.camera_alt_outlined, size: 18),
                     label: const Text('Camera'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _photos.length < 3 ? () => _pickPhoto(ImageSource.gallery) : null,
+                    onPressed: _photos.length < 3
+                        ? () => _pickPhoto(ImageSource.gallery)
+                        : null,
                     icon: const Icon(Icons.photo_library_outlined, size: 18),
                     label: const Text('Gallery'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -782,12 +792,16 @@ class _PhotoCaptureSheetState extends State<_PhotoCaptureSheet> {
                 backgroundColor: const Color(0xFFB91C1C),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
               child: Text(
-                _photos.isEmpty ? 'SKIP & SEND SOS' : 'SEND SOS WITH ${_photos.length} PHOTO${_photos.length > 1 ? "S" : ""}',
-                style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                _photos.isEmpty
+                    ? 'SKIP & SEND SOS'
+                    : 'SEND SOS WITH ${_photos.length} PHOTO${_photos.length > 1 ? "S" : ""}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900, letterSpacing: 0.5),
               ),
             ),
           ],

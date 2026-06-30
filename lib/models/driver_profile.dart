@@ -13,8 +13,18 @@ class DriverProfile {
     return DriverProfile(
       isDriver: json['isDriver'] ?? false,
       user: json['user'] != null ? UserProfile.fromJson(json['user']) : null,
-      activeTrip: json['activeTrip'] != null ? ActiveTrip.fromJson(json['activeTrip']) : null,
+      activeTrip: json['activeTrip'] != null
+          ? ActiveTrip.fromJson(json['activeTrip'])
+          : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'isDriver': isDriver,
+      'user': user?.toJson(),
+      'activeTrip': activeTrip?.toJson(),
+    };
   }
 }
 
@@ -38,6 +48,15 @@ class UserProfile {
       userContact: json['user_contact'],
       userEmail: json['user_email'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'user_id': userId,
+      'name': name,
+      'user_contact': userContact,
+      'user_email': userEmail,
+    };
   }
 }
 
@@ -64,5 +83,15 @@ class ActiveTrip {
       vehicleId: json['vehicle_id'],
       vehiclePlate: json['vehicle_plate'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'doc_no': docNo,
+      'status': status,
+      'vehicle_id': vehicleId,
+      'vehicle_plate': vehiclePlate,
+    };
   }
 }

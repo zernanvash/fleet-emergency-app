@@ -89,12 +89,14 @@ class ApiService {
       }),
     );
 
-    final workingUrl = results.firstWhere((url) => url != null, orElse: () => null);
+    final workingUrl =
+        results.firstWhere((url) => url != null, orElse: () => null);
     if (workingUrl != null) {
       setBaseUrl(workingUrl);
       print('Next.js BFF connection established at: $workingUrl');
     } else {
-      print('Auto-discovery failed to reach Next.js BFF. Defaulting to: $baseUrl');
+      print(
+          'Auto-discovery failed to reach Next.js BFF. Defaulting to: $baseUrl');
     }
   }
 
@@ -122,7 +124,10 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Some backends return the token directly in the response payload body
         final data = response.data;
-        final token = data['token'] ?? data['accessToken'] ?? data['access_token'] ?? data['jwt'];
+        final token = data['token'] ??
+            data['accessToken'] ??
+            data['access_token'] ??
+            data['jwt'];
         if (token != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('vos_access_token', token);
@@ -139,11 +144,13 @@ class ApiService {
   /// Resolve current logged-in driver's profile, plate number, and active trip plan
   Future<DriverProfile> getDriverProfile() async {
     try {
-      final response = await _dio.get('/api/scm/fleet-management/emergency-management/driver-profile');
+      final response = await _dio
+          .get('/api/scm/fleet-management/emergency-management/driver-profile');
       if (response.statusCode == 200) {
         return DriverProfile.fromJson(response.data);
       }
-      throw Exception('Failed to resolve driver profile: Code ${response.statusCode}');
+      throw Exception(
+          'Failed to resolve driver profile: Code ${response.statusCode}');
     } catch (e) {
       print('ApiService getDriverProfile error: $e');
       rethrow;
@@ -164,31 +171,39 @@ class ApiService {
     List<String> attachments = const [],
   }) async {
     try {
-      final response = await _dio.post('/api/scm/fleet-management/emergency-management/reports', data: {
-        'incident_type': 'other',
-        'severity': 'critical',
-        'vehicle_id': vehicleId,
-        'driver_user_id': driverUserId,
-        'dispatch_plan_id': dispatchPlanId,
-        'occurred_at': DateTime.now().toUtc().add(const Duration(hours: 8)).toIso8601String().replaceAll('Z', ''),
-        'location_name': locationName,
-        'latitude': latitude,
-        'longitude': longitude,
-        'description': description,
-        'contact_name': contactName,
-        'contact_phone': contactPhone,
-        if (attachments.isNotEmpty) 'attachments': jsonEncode(attachments),
-      });
+      final response = await _dio.post(
+          '/api/scm/fleet-management/emergency-management/reports',
+          data: {
+            'incident_type': 'other',
+            'severity': 'critical',
+            'vehicle_id': vehicleId,
+            'driver_user_id': driverUserId,
+            'dispatch_plan_id': dispatchPlanId,
+            'occurred_at': DateTime.now()
+                .toUtc()
+                .add(const Duration(hours: 8))
+                .toIso8601String()
+                .replaceAll('Z', ''),
+            'location_name': locationName,
+            'latitude': latitude,
+            'longitude': longitude,
+            'description': description,
+            'contact_name': contactName,
+            'contact_phone': contactPhone,
+            if (attachments.isNotEmpty) 'attachments': jsonEncode(attachments),
+          });
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         // Enriched response contains generated Reference Number ER-XXXX-XXXX
         final reportData = response.data['report'];
         if (reportData == null) {
-          throw Exception('API response was successful but report payload was missing.');
+          throw Exception(
+              'API response was successful but report payload was missing.');
         }
         return EmergencyReport.fromJson(reportData);
       }
-      throw Exception('Failed to create emergency report: Code ${response.statusCode}');
+      throw Exception(
+          'Failed to create emergency report: Code ${response.statusCode}');
     } catch (e) {
       if (e is DioException) {
         print('ApiService createEmergencyReport details: ${e.response?.data}');
@@ -199,22 +214,27 @@ class ApiService {
   }
 
   /// Update situation updates for an active distress report
-  Future<EmergencyReport> updateIncidentNotes(int reportId, String notes, String contactName, String contactPhone) async {
+  Future<EmergencyReport> updateIncidentNotes(int reportId, String notes,
+      String contactName, String contactPhone) async {
     try {
-      final response = await _dio.patch('/api/scm/fleet-management/emergency-management/reports/$reportId', data: {
-        'description': notes,
-        'contact_name': contactName,
-        'contact_phone': contactPhone,
-      });
+      final response = await _dio.patch(
+          '/api/scm/fleet-management/emergency-management/reports/$reportId',
+          data: {
+            'description': notes,
+            'contact_name': contactName,
+            'contact_phone': contactPhone,
+          });
 
       if (response.statusCode == 200) {
         final reportData = response.data['report'];
         if (reportData == null) {
-          throw Exception('API response was successful but report payload was missing.');
+          throw Exception(
+              'API response was successful but report payload was missing.');
         }
         return EmergencyReport.fromJson(reportData);
       }
-      throw Exception('Failed to update incident details: Code ${response.statusCode}');
+      throw Exception(
+          'Failed to update incident details: Code ${response.statusCode}');
     } catch (e) {
       print('ApiService updateIncidentNotes error: $e');
       rethrow;
@@ -222,25 +242,29 @@ class ApiService {
   }
 
   /// Cancel/resolve the active emergency report when driver is being helped
-  Future<EmergencyReport> resolveEmergencyReport(int reportId, String reason) async {
+  Future<EmergencyReport> resolveEmergencyReport(
+      int reportId, String reason) async {
     try {
-      final response = await _dio.patch('/api/scm/fleet-management/emergency-management/reports/$reportId', data: {
-        'status': 'cancelled',
-        'cancelled_reason': reason,
-      });
+      final response = await _dio.patch(
+          '/api/scm/fleet-management/emergency-management/reports/$reportId',
+          data: {
+            'status': 'cancelled',
+            'cancelled_reason': reason,
+          });
 
       if (response.statusCode == 200) {
         final reportData = response.data['report'];
         if (reportData == null) {
-          throw Exception('API response was successful but report payload was missing.');
+          throw Exception(
+              'API response was successful but report payload was missing.');
         }
         return EmergencyReport.fromJson(reportData);
       }
-      throw Exception('Failed to resolve emergency report: Code ${response.statusCode}');
+      throw Exception(
+          'Failed to resolve emergency report: Code ${response.statusCode}');
     } catch (e) {
       print('ApiService resolveEmergencyReport error: $e');
       rethrow;
     }
   }
 }
-

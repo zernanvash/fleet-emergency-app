@@ -55,8 +55,9 @@ class OfflineQueue {
 
     final payload = Map<String, dynamic>.from(jsonDecode(rawPayload) as Map);
     final rawPhotos = prefs.getString(_photosKey);
-    final photoPaths =
-        rawPhotos != null ? List<String>.from(jsonDecode(rawPhotos) as List) : <String>[];
+    final photoPaths = rawPhotos != null
+        ? List<String>.from(jsonDecode(rawPhotos) as List)
+        : <String>[];
 
     try {
       // 1. Upload any locally-stored photos that were captured while offline.
@@ -91,7 +92,8 @@ class OfflineQueue {
         contactName: payload['contact_name'] as String? ?? '',
         contactPhone: payload['contact_phone'] as String? ?? '',
         attachments: payload['attachments'] != null
-            ? List<String>.from(jsonDecode(payload['attachments'] as String) as List)
+            ? List<String>.from(
+                jsonDecode(payload['attachments'] as String) as List)
             : [],
       );
 

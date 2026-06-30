@@ -5,6 +5,7 @@ import '../models/driver_profile.dart';
 import '../models/emergency_report.dart';
 import '../services/api_service.dart';
 import '../services/offline_queue.dart';
+import 'sos_screen.dart';
 
 class DistressScreen extends StatefulWidget {
   final EmergencyReport? report;
@@ -199,8 +200,13 @@ class _DistressScreenState extends State<DistressScreen> {
 
   Future<void> _resolveIncident() async {
     if (!_hasServerReport) {
-      _showSnack('Dispatch confirmation is required before closing this SOS.',
-          isError: true);
+      if (mounted) {
+        _showSnack('Distress beacon dismissed locally.');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SosScreen()),
+        );
+      }
       return;
     }
 
@@ -213,11 +219,18 @@ class _DistressScreenState extends State<DistressScreen> {
 
       if (mounted) {
         _showSnack('Distress beacon resolved successfully.');
-        Navigator.pop(context);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SosScreen()),
+        );
       }
     } catch (e) {
       if (mounted) {
-        _showSnack('Failed to resolve beacon: $e', isError: true);
+        _showSnack('Resolved locally (could not sync with server: $e)');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SosScreen()),
+        );
       }
     } finally {
       if (mounted) {
@@ -242,7 +255,8 @@ class _DistressScreenState extends State<DistressScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF3C7),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+        border:
+            Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Row(
@@ -265,7 +279,8 @@ class _DistressScreenState extends State<DistressScreen> {
                 SizedBox(height: 2),
                 Text(
                   'Your report is saved on this device and will be sent automatically when a connection is established.',
-                  style: TextStyle(color: Color(0xFF92400E), fontSize: 11, height: 1.35),
+                  style: TextStyle(
+                      color: Color(0xFF92400E), fontSize: 11, height: 1.35),
                 ),
               ],
             ),
@@ -274,7 +289,6 @@ class _DistressScreenState extends State<DistressScreen> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -440,9 +454,7 @@ class _DistressScreenState extends State<DistressScreen> {
         : (_isDispatching ? const Color(0xFF1D4ED8) : const Color(0xFFB91C1C));
     final title = hasError
         ? 'Signal needs attention'
-        : (_isDispatching
-            ? 'Broadcasting SOS...'
-            : 'SOS Signal Dispatched');
+        : (_isDispatching ? 'Broadcasting SOS...' : 'SOS Signal Dispatched');
     final description = hasError
         ? 'Dispatch has not confirmed the digital report yet. Please call the hotline below.'
         : 'SCM dispatch has received your coordinates and active trip context. A representative will call you immediately. Keep this screen open.';
@@ -557,11 +569,10 @@ class _DistressScreenState extends State<DistressScreen> {
         ),
         const SizedBox(height: 12),
         ElevatedButton.icon(
-          onPressed:
-              (_isUpdating || !_hasServerReport) ? null : _confirmBeingHelped,
+          onPressed: _isUpdating ? null : _confirmBeingHelped,
           icon: const Icon(Icons.check_circle_outline),
           label: Text(
-            _hasServerReport ? 'I AM BEING HELPED' : 'WAITING FOR CONFIRMATION',
+            _hasServerReport ? 'I AM BEING HELPED' : 'DISMISS OFFLINE ALERT',
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF09090B),

@@ -7,7 +7,8 @@ class BackgroundSyncService {
   static const String _notificationChannelId = 'my_foreground';
   static const int _notificationId = 888;
 
-  static final BackgroundSyncService _instance = BackgroundSyncService._internal();
+  static final BackgroundSyncService _instance =
+      BackgroundSyncService._internal();
   factory BackgroundSyncService() => _instance;
   BackgroundSyncService._internal();
 
@@ -22,7 +23,8 @@ class BackgroundSyncService {
         isForegroundMode: true,
         notificationChannelId: _notificationChannelId,
         initialNotificationTitle: 'VOS Emergency Sync Active',
-        initialNotificationContent: 'Monitoring connectivity to broadcast distress beacon...',
+        initialNotificationContent:
+            'Monitoring connectivity to broadcast distress beacon...',
         foregroundServiceNotificationId: _notificationId,
       ),
       iosConfiguration: IosConfiguration(
